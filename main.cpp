@@ -1,7 +1,7 @@
 #include <iostream>           //Basic I/O Operations
 #include "opencv2/opencv.hpp" //Include all OpenCV header
 
- 
+  
 using namespace std;
 
 //Class template
