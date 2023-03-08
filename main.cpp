@@ -76,10 +76,15 @@ cv::Mat discreteConvolution::conv(cv::Mat image)
                 max=std::max(max,sum);
             }
         }
-    //cout <<convimage.type()<< " "<< convimage.size()<<endl;
-    //cv::minMaxLoc (convimage, min, max, NULL,NULL);                                                //causes segmentation fault
-    //cv::minMaxIdx (convimage, min, max, NULL);
-    //cout  << "min " << min << "  max " << max <<endl;
+
+    /*    cv::minMaxIdx (convimage, &min, &max,NULL);
+    cout  << "min " << min << "  max " << max <<endl;
+    convimage = convimage-min;
+    convimage = (convimage/(max-min))*255;
+    convimage.convertTo(convimage, CV_8UC1);
+    return convimage; */
+
+
     convimage = convimage-min;
     convimage = (convimage/(max-min))*255;
     //convimage.convertTo(convimage, CV_8UC1);
@@ -97,6 +102,7 @@ cv::Mat segment(std::vector<cv::Mat> BGR, int prefered_channel)
     for(int i=0; i< BGR.size() ;++i){
     BGR[i].convertTo(BGR[i], CV_64F);  
     }
+
     if(prefered_channel==0) color =   2*BGR[0] - BGR[1] - BGR[2];
     if(prefered_channel==1) color = - BGR[0] + 2*BGR[1] - BGR[2];
     if(prefered_channel==2) color = - BGR[0] - BGR[1] + 2*BGR[2];
@@ -131,9 +137,9 @@ int main( int argc, char** argv ) {
     }
 
 
-    double m[3][3] = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};     //explicit definition of double array
+    double m[3][3] = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};     //explicit definition of double array
     cv::Mat kernel = cv::Mat(3, 3, CV_64F, m);              //feed Mat with the double array 
-    kernel = kernel/9;
+    //kernel = kernel/16;                                   //no longer neccessary due to normalization function
     //cv::Mat kernel = cv::Mat::ones(3,3, CV_64F);           //shorter but less flexible
     discreteConvolution *denoise = new discreteConvolution(kernel);
     //denoise->print();
@@ -152,39 +158,40 @@ int main( int argc, char** argv ) {
         return -1;                          // Failure occurs
     }//End check image
 
-    std::vector< cv::Mat > layers, bimg; 
-    cv::Mat matbimg[3];
-    cv::Mat convimage, charconvimage, segimg; //mat for transforming back into CV_8UC1
-    cv::Mat zeromat=cv::Mat::zeros(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1); 
+    std::vector< cv::Mat > layers;//, bimg; 
+    //cv::Mat matbimg[3];
+    cv::Mat convimage, charconvimage, segimg; //mat for different steps
+    /*cv::Mat zeromat=cv::Mat::zeros(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1); 
     cv::Mat onemat=cv::Mat::ones(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1); 
-    cv::Mat eyemat=cv::Mat::eye(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1);  
+    cv::Mat eyemat=cv::Mat::eye(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1);  */
     cv::split( img, layers ); // Split channles 
 
+    segimg=segment(layers,2);
+    //segimg=normalize(segimg);
 
-    bimg = {onemat,zeromat,eyemat}; //fill with different pointers?
+    //bimg = {onemat,zeromat,eyemat}; //fill with different pointers?
     //segimg=cv::Mat::zeros(img.rows, img.cols,CV_64F);
 
-    for (int i=0;i<3;++i)
+    /*for (int i=0;i<3;++i)
     {
         convimage = denoise->conv(layers[i]);
-        //cout<<"seg fault happens in the next line at i=0"<<endl;
         convimage.convertTo(bimg.at(i), CV_8UC1);
 
         //convimage.convertTo(charconvimage), CV_8UC1);                     why does it overwrite itself if i save it in between? does it save a pointer to charconvimage into bimg?
         //bimg.at(i)=charconvimage;
-    } 
-    segimg=segment(bimg,2);
-    segimg=normalize(segimg);
+    } */
+    convimage = denoise->conv(segimg);
+    charconvimage=normalize(convimage);
 
-    cv::Mat merged;
-    cv::merge(bimg, merged);
+    //cv::Mat merged;
+    //cv::merge(bimg, merged);
 
-    cv::namedWindow("denoised Image", 0);           //Create window with adjustable settigns
-    cv::imshow("denoised Image", merged);           //Move image to window
+    //cv::namedWindow("denoised Image", 0);           //Create window with adjustable settigns
+    //cv::imshow("denoised Image", merged);           //Move image to window
     cv::namedWindow("original Image", 0);           //Create window with adjustable settigns
     cv::imshow("original Image", img);           //Move image to window    
     cv::namedWindow("colorsegmented Image", 0);           //Create window with adjustable settigns
-    cv::imshow("colorsegmented Image", segimg);           //Move image to window
+    cv::imshow("colorsegmented Image", charconvimage);           //Move image to window
 
     cv::waitKey(0);                     //Pritn iamge and wait for user input 
 
