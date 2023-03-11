@@ -4,6 +4,10 @@
   
 using namespace std;
 
+
+
+
+
 //Class template
 class discreteConvolution
 {   
@@ -29,9 +33,9 @@ public:
 discreteConvolution::discreteConvolution()
 {
     //initialize private members
-    kernel_ = cv::Mat::ones(3,3, CV_32F);
-    kernel_ = kernel_/9;
+    kernel_ = cv::Mat::zeros(3,3, CV_64F);
 }
+
 //angabe constructor
 discreteConvolution::discreteConvolution(cv::Mat kernel)
 {
@@ -57,7 +61,7 @@ cv::Mat discreteConvolution::conv(cv::Mat image)
     image.convertTo(image, CV_64FC1);
     double min, max; 
     cv::Mat convimage;
-    convimage=cv::Mat::zeros(image.rows-kernel_.rows+1,image.cols-kernel_.cols+1, CV_64FC1);
+    convimage = cv::Mat::zeros(image.rows-kernel_.rows+1,image.cols-kernel_.cols+1, CV_64FC1);
     double sum = 0;
         for(int i = 0; i < image.rows-kernel_.rows+1; i++)
         {
@@ -70,10 +74,10 @@ cv::Mat discreteConvolution::conv(cv::Mat image)
                     {
                         sum += image.at<double>(i+k,j+l)*kernel_.at<double>(k,l); 
                     }
-                }  
+                }
                 convimage.at<double>(i,j)=sum;
-                min=std::min(min,sum);
-                max=std::max(max,sum);
+                //min=std::min(min,sum);
+                //max=std::max(max,sum);
             }
         }
 
@@ -85,36 +89,65 @@ cv::Mat discreteConvolution::conv(cv::Mat image)
     return convimage; */
 
 
-    convimage = convimage-min;
-    convimage = (convimage/(max-min))*255;
+    //convimage = convimage-min;
+    //convimage = (convimage/(max-min))*255;
     //convimage.convertTo(convimage, CV_8UC1);
     return convimage;
 }
 
-cv::Mat segment(std::vector<cv::Mat> BGR, int prefered_channel)
+class sobelDetector
+{
+private:
+        double m[3][3] = {{1., 2., 1.}, {0., 0., 0.}, {-1., -2., -1.}};     //explicit definition of double array
+        cv::Mat kernel_ = cv::Mat(3, 3, CV_64F, m);                         //feed Mat with the double array 
+        discreteConvolution sobelx_ = discreteConvolution(kernel_);
+        discreteConvolution sobely_ = discreteConvolution(kernel_.t());
+
+public:
+    sobelDetector(){}
+    
+    
+    void getEdges(cv::Mat &imgsobel, cv::Mat img) 
+    {
+        if (img.type()!=CV_64F) img.convertTo(img, CV_64F);                  //check if img is double and convert if it isnt
+        if (imgsobel.type()!=CV_64F) imgsobel.convertTo(imgsobel, CV_64F);   //check if img is double and convert if it isnt
+        
+        //sobelx_.print();
+        cv::Mat imgsobelx = sobelx_.conv(img);                          //sobel in one dimension
+        //sobely_.print();
+        cv::Mat imgsobely = sobely_.conv(img);                          //sobel in the other dimension
+        imgsobel = (imgsobelx.mul(imgsobelx)+imgsobely.mul(imgsobely)); //pythagoras in two lines
+        cv::sqrt(imgsobel,imgsobel);
+    }
+
+
+};
+
+//color segmentation of BGR based on the channel chosen in prefered_channel
+void segment(std::vector<cv::Mat> BGR, cv::Mat &color, int prefered_channel) 
 {
     if( prefered_channel < 0 || prefered_channel > 2 ) {
         std::cout << "choose channel 0,1 or 2\n"; // Print error msg
-        return BGR[0];                          // Failure doesn't occur
+        color=cv::Mat::zeros(3,3,CV_64F);                                  // Failure doesn't occur to lazy find a compilable solution
     }
-    cv::Mat color = cv::Mat::zeros(BGR[0].size(),CV_64F);
-
-    for(int i=0; i< BGR.size() ;++i){
-    BGR[i].convertTo(BGR[i], CV_64F);  
+    
+    for(int i=0; i< BGR.size() ;++i){                       //check if BGR is double and convert if it isnt
+    if (BGR[i].type()!=CV_64F) BGR[i].convertTo(BGR[i], CV_64F);  
     }
 
-    if(prefered_channel==0) color =   2*BGR[0] - BGR[1] - BGR[2];
+    if(prefered_channel==0) color =   2*BGR[0] - BGR[1] - BGR[2];       //color segmentation based on chosen channel
     if(prefered_channel==1) color = - BGR[0] + 2*BGR[1] - BGR[2];
     if(prefered_channel==2) color = - BGR[0] - BGR[1] + 2*BGR[2];
-    cout <<color.type()<<endl;
-    //color=normalize(color);
-    return color;
+    
 }
 
+
+//returns an 8bit mat that is scaled to the [0,255] interval
 cv::Mat normalize(cv::Mat mat)
 {
-    mat.convertTo(mat, CV_64F);
-    double min=255, max=0;  
+    if (mat.type()!=CV_64F) mat.convertTo(mat, CV_64F);                 //check if img is double and convert if it isnt
+    
+    double min=255, max=0;                                              //slow but works
         for(int i = 0; i < mat.rows; i++)
         {
             for(int j = 0; j < mat.cols; j++)
@@ -125,13 +158,13 @@ cv::Mat normalize(cv::Mat mat)
         }
     mat = mat-min;
     mat = (mat/(max-min))*255;
-    cout  << "min " << min << "  max " << max <<endl;
+    //cout  << "min " << min << "  max " << max <<endl;
     mat.convertTo(mat, CV_8UC1);
     return mat;
 }
 
 int main( int argc, char** argv ) {
-    if( argc != 2 ) {
+    if( argc != 2 ) {           //example code by woeber
         std::cout << "Usage: ./OpenCV <Pfad-zum-Bild>\n"; // Pritn usage message
         return -1;                                        // Failure occurs
     }
@@ -139,15 +172,13 @@ int main( int argc, char** argv ) {
 
     double m[3][3] = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};     //explicit definition of double array
     cv::Mat kernel = cv::Mat(3, 3, CV_64F, m);              //feed Mat with the double array 
-    //kernel = kernel/16;                                   //no longer neccessary due to normalization function
-    //cv::Mat kernel = cv::Mat::ones(3,3, CV_64F);           //shorter but less flexible
     discreteConvolution *denoise = new discreteConvolution(kernel);
     //denoise->print();
 
 
 
-    //example code from woeber
-    std::string path_to_image = std::string( argv[ 1 ] );
+
+    std::string path_to_image = std::string( argv[ 1 ] );    //example code by woeber
     std::cout << "Got path to image:" << path_to_image << std::endl;
     //------------------------------//
     //--- Load iamge and test it ---//
@@ -158,15 +189,11 @@ int main( int argc, char** argv ) {
         return -1;                          // Failure occurs
     }//End check image
 
-    std::vector< cv::Mat > layers;//, bimg; 
-    //cv::Mat matbimg[3];
-    cv::Mat convimage, charconvimage, segimg; //mat for different steps
-    /*cv::Mat zeromat=cv::Mat::zeros(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1); 
-    cv::Mat onemat=cv::Mat::ones(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1); 
-    cv::Mat eyemat=cv::Mat::eye(img.rows-kernel.rows+1,img.cols-kernel.cols+1, CV_8UC1);  */
-    cv::split( img, layers ); // Split channles 
+    std::vector< cv::Mat > layers;
+    cv::Mat convimage, charconvimage, segimg; 
+    cv::split(img, layers); // Split channles 
 
-    segimg=segment(layers,2);
+    segment(layers, segimg ,2);
     //segimg=normalize(segimg);
 
     //bimg = {onemat,zeromat,eyemat}; //fill with different pointers?
@@ -177,23 +204,68 @@ int main( int argc, char** argv ) {
         convimage = denoise->conv(layers[i]);
         convimage.convertTo(bimg.at(i), CV_8UC1);
 
-        //convimage.convertTo(charconvimage), CV_8UC1);                     why does it overwrite itself if i save it in between? does it save a pointer to charconvimage into bimg?
+        //convimage.convertTo(charconvimage), CV_8UC1);                     //why does it overwrite itself if i save it in between? does it save a pointer to charconvimage into bimg?
         //bimg.at(i)=charconvimage;
     } */
     convimage = denoise->conv(segimg);
     charconvimage=normalize(convimage);
+    
+    cv::Mat edges; 
+    
+    sobelDetector sbldt;        //initialzise sobel class
+    sbldt.getEdges(edges, convimage);
+    
+    cv::Mat charedges=normalize(edges);     //make it bite sized
+    cv::Mat thresholdedimg;                 
+    cv::threshold(charedges, thresholdedimg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);  //otsu threshold returns binary image
 
+
+    //Detect circles in the image
+    vector<cv::Vec3f> circles;
+    cv::HoughCircles(thresholdedimg, circles, cv::HOUGH_GRADIENT, 2,
+                     thresholdedimg.rows / 8,  // min distance between circles
+                     100, 30, 20, 50 // last two parameters (min_radius & max_radius) are circle size in pixel
+                     // 
+    );
+
+    cv::Mat imgcopy=charedges.clone();
+
+    //Draw circles detected
+    for(size_t i = 0; i < circles.size(); i++) {
+        cv::Vec3i c = circles[i];
+        //std::cout << circles[i];
+        cv::Point center = cv::Point(c[0], c[1]);
+        int radius = c[2];
+        // circle center
+        //cv::circle(imgcopy, center, 1, 255, 3, cv::LINE_AA);
+        // circle outline
+        cv::circle(imgcopy, center, radius, 255, 3, cv::LINE_AA);
+    }
+
+    //Show the result
+    cv::imshow("Hough Circles", img);
+    
     //cv::Mat merged;
     //cv::merge(bimg, merged);
 
-    //cv::namedWindow("denoised Image", 0);           //Create window with adjustable settigns
-    //cv::imshow("denoised Image", merged);           //Move image to window
-    cv::namedWindow("original Image", 0);           //Create window with adjustable settigns
-    cv::imshow("original Image", img);           //Move image to window    
-    cv::namedWindow("colorsegmented Image", 0);           //Create window with adjustable settigns
-    cv::imshow("colorsegmented Image", charconvimage);           //Move image to window
+    //cv::namedWindow("denoised Image", 0);
+    //cv::imshow("denoised Image", merged);
+    cv::namedWindow("original Image", 0); 
+    cv::imshow("original Image", img);
 
-    cv::waitKey(0);                     //Pritn iamge and wait for user input 
+    cv::namedWindow("colorsegmented Image", 0); 
+    cv::imshow("colorsegmented Image", charconvimage);
+
+    cv::namedWindow("sobel Image", 0);
+    cv::imshow("sobel Image", charedges);
+
+    cv::namedWindow("thresholded Image", 0);  
+    cv::imshow("thresholded Image", thresholdedimg);
+
+    cv::namedWindow("original Image with circles", 0); 
+    cv::imshow("original Image with circles", imgcopy);
+
+    cv::waitKey(0);                     //Print iamge and wait for user input 
 
 
 } // end main function
