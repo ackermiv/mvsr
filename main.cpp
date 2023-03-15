@@ -1,3 +1,6 @@
+/*Code by Ivo ackermann unless stated otherwise
+loads an image source, color segments, smooths, detects edges with sobel, and detects circles in the image */
+
 #include <iostream>           //Basic I/O Operations
 #include "opencv2/opencv.hpp" //Include all OpenCV header
 
