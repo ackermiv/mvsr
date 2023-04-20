@@ -1,3 +1,8 @@
 main.o
 OpenCV
 .vscode/settings.json
+hue2/MNIST_CSV.zip
+hue2/MNIST_CSV/generate_mnist_csv.py
+hue2/MNIST_CSV/mnist_test.csv
+hue2/MNIST_CSV/mnist_train.csv
+hue2/MNIST_CSV/readme.md
