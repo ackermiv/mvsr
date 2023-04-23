@@ -1,6 +1,5 @@
-/*Code by Ivo ackermann unless stated otherwise
-loads the mnist dataset and computes a logistic regression classifier for 4 and 7. */
-//mnist dataset is in a subfolder
+/*Code by Ivo ackermann
+loads the mnist dataset from a subfolder and computes a logistic regression classifier for 4 and 7. */
 
 #include <iostream>           //Basic I/O Operations
 #include "opencv2/opencv.hpp" //Include all OpenCV header
@@ -59,10 +58,9 @@ float faccuracy(cv::Mat &prediction,cv::Mat &truth)
 
 int main()
 {       
-    cv::Mat samples_47;
-    cv::Mat labels_47;
-    std::string traindata ="MNIST_CSV/mnist_train.csv";
-    extract47(samples_47,labels_47,traindata); //loads the bigger train dataset and extracts 4 and 7
+    cv::Mat samples_47, labels_47;
+    std::string traindata ="MNIST_CSV/mnist_test.csv"; 
+    extract47(samples_47,labels_47,traindata); //loads the smaller test dataset and extracts 4 and 7  
     //cout << labels_47.size() <<endl;
 
     //Preprocessing 
@@ -95,10 +93,9 @@ int main()
     //cout << "Latente Dimensionen: " << pca.eigenvectors.rows << std::endl;
 
     //Apply preprocessing to test dataset
-    std::string testdata = "MNIST_CSV/mnist_test.csv";
-    cv::Mat test_samples_47;
-    cv::Mat test_target_47;
-    extract47(test_samples_47,test_target_47,testdata); //loads the smaller test dataset and extracts 4 and 7  
+    std::string testdata = "MNIST_CSV/mnist_train.csv";
+    cv::Mat test_samples_47,test_target_47;
+    extract47(test_samples_47,test_target_47,testdata);//loads the bigger train dataset and extracts 4 and 7
     
     //standardize with same mean/stdev as with training data
     cv::Mat test_samples_47_std =cv::Mat(test_samples_47.size(),CV_32F);
@@ -118,7 +115,7 @@ int main()
     cv::Mat weights=cv::Mat::ones(samples_47_std_pca.cols,1,CV_32F);  //initialize weights
     cv::Mat prediction, errors, gradient, test_prediction;
     float accuracy;
-    for (int i=0;i<20;i++)  //roughly stabil after 15 iterations
+    for (int i=0;i<30;i++)  //roughly stabil after 15 iterations
     {
         
         //calculate errors in the training set
