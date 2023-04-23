@@ -8,11 +8,11 @@ loads the mnist dataset and computes a logistic regression classifier for 4 and 
 
 using namespace std;
 
-void extract47(cv::Mat &samples_47t, cv::Mat &labels_47, std::string source)
+void extract47(cv::Mat &samples_47, cv::Mat &labels_47, std::string source)
 {
     cv::Ptr< cv::ml::TrainData > tdata = cv::ml::TrainData::loadFromCSV( source, 0, 0, 1 ); // First col is the target as a float (32 bit, CV_32F, 5)
     cv::Mat samples = tdata->getTrainSamples( );                                                        // Get design matrix
-    cv::Mat target = tdata->getTrainResponses( );                                                          // Get target values
+    cv::Mat target = tdata->getTrainResponses( );                                                       // Get target values
 
     //cout << "type:" << samples.type()<<"size:"<<samples.size() <<endl;
 
@@ -23,20 +23,11 @@ void extract47(cv::Mat &samples_47t, cv::Mat &labels_47, std::string source)
         if( target.at< float >( i ) == 7.0 )indices_7.push_back( i );
     }
 
-    //cout << indices_4.size() << endl;
+    //extract samples of 4 and 7
+    for( int i = 0; i < indices_4.size( ); i++ )        samples_47.push_back( samples.row( indices_4[ i ] ) );
+    for( int i = 0; i < indices_7.size( ); i++ )        samples_47.push_back( samples.row( indices_7[ i ] ) );
 
-    cv::Mat samples_4,samples_7;              //extract samples of 4 and 7
-    for( int i = 0; i < indices_4.size( ); i++ )        samples_4.push_back( samples.row( indices_4[ i ] ) );
-    for( int i = 0; i < indices_7.size( ); i++ )        samples_7.push_back( samples.row( indices_7[ i ] ) );
-
-    //cout << "type: " << samples_4.type() << " size: " << samples_4.size() <<endl;
-
-    cv::Mat samples_47;                     //create design matrix for 4 and 7
-    samples_47.push_back( samples_4 );
-    samples_47.push_back( samples_7 );
-    //cv::Mat samples_47t=samples_47.t();     //transpose to fit the script 
-    samples_47t=samples_47;
-    cout << "type: " << samples_47t.type() << " size: " << samples_47t.size() <<endl;
+    //cout << "type: " << samples_47.type() << " size: " << samples_47.size() <<endl;
 
     labels_47 = cv::Mat::ones( samples_47.rows, 1, CV_32F );    // create binary labels 0 for 4 and +1 for 7
     for( int i=0; i <indices_4.size( ); i++ ) labels_47.row(i) = 0;
@@ -68,101 +59,84 @@ float faccuracy(cv::Mat &prediction,cv::Mat &truth)
 
 int main()
 {       
-    cv::Mat samples_47t;
+    cv::Mat samples_47;
     cv::Mat labels_47;
     std::string traindata ="MNIST_CSV/mnist_train.csv";
-    extract47(samples_47t,labels_47,traindata);
-    // labels_47.rowRange( 0, samples_4.rows ) *= -1;
- 
+    extract47(samples_47,labels_47,traindata); //loads the bigger train dataset and extracts 4 and 7
     //cout << labels_47.size() <<endl;
 
     //Preprocessing 
     //Standardise the training dataset
-    cv::Mat samples_47t_std= cv::Mat(samples_47t.size(), CV_32F);
-    cv::Mat mu = cv::Mat::zeros( samples_47t.cols, 1, CV_32F );  // Memory for the means
-    cv::Mat var = cv::Mat::ones( samples_47t.cols, 1, CV_32F ); // Memory for the scale
-//    cout << "type: " << samples_47t_std.type() << " size: " << samples_47t_std.size() <<endl;
+    cv::Mat samples_47_std= cv::Mat(samples_47.size(), CV_32F);  //could overwrite samples_47 to save space
+    cv::Mat mu = cv::Mat::zeros( samples_47.cols, 1, CV_32F );  // Memory for the means
+    cv::Mat var = cv::Mat::ones( samples_47.cols, 1, CV_32F ); // Memory for the scale
+//    cout << "type: " << samples_47_std.type() << " size: " << samples_47_std.size() <<endl;
 
     cv::Scalar mean,stdev;
-    //cv::meanStdDev(samples_47t,mean,stdev);
-    //cout << mean[2] <<endl;
-    for (int i=0;i<samples_47t.cols;i++)
+    for (int i=0;i<samples_47.cols;i++)
     {
-        cv::meanStdDev(samples_47t.col(i),mean,stdev);
+        cv::meanStdDev(samples_47.col(i),mean,stdev);
         //cout <<mean<<endl<<stdev<<endl;
         mu.at< float >( i ) = static_cast<float>(mean[0]);         // Store mean
         var.at< float >( i ) = static_cast<float>(stdev[0]);         // Store stddeviation
         
-        //cout << "size links: " << samples_47t_std.size() << " size: " << samples_47t.col(i).size() <<endl;
+        //cout << "size links: " << samples_47_std.size() << " size: " << samples_47.col(i).size() <<endl;
         if(stdev[0]==0)
-        {samples_47t_std.col(i)=1;}
+        {samples_47_std.col(i)=1;}
         else
-        {samples_47t_std.col(i)=((samples_47t.col(i)-mean[0])/stdev[0]);}
+        {samples_47_std.col(i)=((samples_47.col(i)-mean[0])/stdev[0]);}
     }
-    //cout<<samples_47t_std<<endl;
-        //cout << " size: " << samples_47t_std.col(3) <<endl;
-        //cout << " size: " << mu <<endl;
-
-
-    //samples_47t_std=samples_47t_std.t();  //transpose back because its more intuitive to me 
 
     //Reduce the standardised training dataset with PCA
-    int latentdim = 350;
-    cv::PCA pca(samples_47t_std,cv::Mat(),cv::PCA::DATA_AS_ROW,latentdim);
-    cv::Mat samples_47t_std_pca=cv::Mat(samples_47t_std.rows,latentdim,CV_32F);
-    pca.project(samples_47t_std,samples_47t_std_pca);
-    cout << "Latente Dimensionen: " << pca.eigenvectors.rows << std::endl;
+    int latentdim = 350; //bisection to a reasonable point where nearly no losses in accuracy occur
+    cv::PCA pca(samples_47_std,cv::Mat(),cv::PCA::DATA_AS_ROW,latentdim);
+    cv::Mat samples_47_std_pca=cv::Mat(samples_47_std.rows,latentdim,CV_32F);
+    pca.project(samples_47_std,samples_47_std_pca);
+    //cout << "Latente Dimensionen: " << pca.eigenvectors.rows << std::endl;
 
     //Apply preprocessing to test dataset
     std::string testdata = "MNIST_CSV/mnist_test.csv";
-    cv::Mat test_samples_47t;
-    cv::Mat test_target_47t;
-    extract47(test_samples_47t,test_target_47t,testdata);
+    cv::Mat test_samples_47;
+    cv::Mat test_target_47;
+    extract47(test_samples_47,test_target_47,testdata); //loads the smaller test dataset and extracts 4 and 7  
     
-    cv::Mat test_samples_47t_std =cv::Mat(test_samples_47t.size(),CV_32F);
-    for (int i=0;i<test_samples_47t.cols;i++)
+    //standardize with same mean/stdev as with training data
+    cv::Mat test_samples_47_std =cv::Mat(test_samples_47.size(),CV_32F);
+    for (int i=0;i<test_samples_47.cols;i++)
     {
         if(var.at< float >( i )==0)
-        {test_samples_47t_std.col(i)=1;}
+        {test_samples_47_std.col(i)=1;}
         else
-        {test_samples_47t_std.col(i)=((test_samples_47t.col(i)-mu.at< float >( i ))/var.at< float >( i ));}
-        //test_samples_47t_std.col(i)=((test_samples_47t.col(i)-mean[i])/stdev[i]);
+        {test_samples_47_std.col(i)=((test_samples_47.col(i)-mu.at< float >( i ))/var.at< float >( i ));}
     }
 
-
-    cv::Mat test_samples_47t_std_pca=cv::Mat(test_samples_47t_std.rows,latentdim,CV_32F);
-    pca.project(test_samples_47t_std,test_samples_47t_std_pca); 
+    //project into the same space as training data
+    cv::Mat test_samples_47_std_pca=cv::Mat(test_samples_47_std.rows,latentdim,CV_32F);
+    pca.project(test_samples_47_std,test_samples_47_std_pca); 
 
     //Train logistic regression
-    cv::Mat weights=cv::Mat::zeros(samples_47t_std_pca.cols,1,CV_32F);  //initialize weights
+    cv::Mat weights=cv::Mat::ones(samples_47_std_pca.cols,1,CV_32F);  //initialize weights
     cv::Mat prediction, errors, gradient, test_prediction;
-    cv::Scalar ret;
     float accuracy;
-    for (int i=0;i<20;i++)  //15 iterations
+    for (int i=0;i<20;i++)  //roughly stabil after 15 iterations
     {
         
-        //calculate outputs and errors
-        cv::Mat Z=(samples_47t_std_pca*weights);
+        //calculate errors in the training set
+        cv::Mat Z=(samples_47_std_pca*weights);
         sigmoid(Z,prediction);
         errors=labels_47-prediction;
-        //cout << "errors size: " << errors.size() << "type: " << errors.type() << endl;
         //cout << errors << endl;
         
         //calculate gradient
-        gradient=samples_47t_std_pca.t()*errors;
-
-        //cout << "gradient size: " << gradient.size() << "type: " << gradient.type() << endl;
+        gradient=samples_47_std_pca.t()*errors;
 
         //update weights
         weights=weights+0.01*gradient;
-        //cout << "weights size: " << weights.size() << "type: " << weights.type() << endl;
 
-        //calculate accuracy
-        //cv::exp(-(test_samples_47t_std_pca*weights),test_prediction);//.mul(test_target_47t)
-        //test_prediction=1.0/(test_prediction+1.0);
-        cv::Mat test_Z=(test_samples_47t_std_pca*weights);
+        //calculate accuracy of the test set
+        cv::Mat test_Z=(test_samples_47_std_pca*weights);
         sigmoid(test_Z,test_prediction);
-        accuracy = faccuracy(test_prediction,test_target_47t);
+        accuracy = faccuracy(test_prediction,test_target_47);
         cout << "Iteration " << i+1 << ": " << accuracy <<"%" << endl;
     }/**/
 return 0;
