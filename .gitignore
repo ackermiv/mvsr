@@ -7,3 +7,6 @@ hue2/MNIST_CSV/mnist_test.csv
 hue2/MNIST_CSV/mnist_train.csv
 hue2/MNIST_CSV/readme.md
 hue2/readme
+hue3/data/activeSet_XYZ.csv
+hue3/data/activeSet.csv
+hue3/data/keypoints.csv
