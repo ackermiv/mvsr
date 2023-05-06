@@ -10,3 +10,6 @@ hue2/readme
 hue3/data/activeSet_XYZ.csv
 hue3/data/activeSet.csv
 hue3/data/keypoints.csv
+hue3/data/image2.png
+hue3/data/trainImage2.png
+hue3/data/trainImage3.png
