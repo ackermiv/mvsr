@@ -41,6 +41,7 @@ void saveSiftFeatures(Mat image)
     drawImageKeypoints(image, keypoints);
 }
 
+
 void saveActiveSet(Mat image)
 {
     // Create SIFT feature detector object
@@ -146,7 +147,7 @@ Mat findPoseEstimation(Mat &image)
 
     // Create a VideoCapture object and open the input file
     // If the input is the web camera, pass 0 instead of the video file name
-    VideoCapture cap("data/cubism.webm"); 
+    VideoCapture cap("data/webcam.webm"); 
         
     // Check if camera opened successfully
     if(!cap.isOpened()){
@@ -205,8 +206,12 @@ Mat findPoseEstimation(Mat &image)
         std::cout << "Translation: " << tvec << std::endl;
         std::cout << "Rotation: " << rvec << std::endl;
         // Display the resulting frame
-        imshow( "Frame", trainImage );
-    
+        //drawImageKeypoints(trainImage, trainImage_Keypoints);
+        Mat drawImg;
+        std::vector< char > matches_mask;
+        drawMatches(image,keypoints,trainImage,trainImage_Keypoints,matches,drawImg, 0, 0,matches_mask,0);
+        imshow("frame",drawImg);
+
         // Press  ESC on keyboard to exit
         char c=(char)waitKey(25);
         if(c==27)
@@ -222,7 +227,7 @@ void videoread(Mat &image)
     {
     // Create a VideoCapture object and open the input file
     // If the input is the web camera, pass 0 instead of the video file name
-    VideoCapture cap("data/cubism.webm"); 
+    VideoCapture cap("data/webcam.webm"); 
         
     // Check if camera opened successfully
     if(!cap.isOpened()){
@@ -262,16 +267,16 @@ void videoread(Mat &image)
 int main()
 {
     // Load image
-    Mat image = imread("data/image.png");
+    Mat image = imread("data/image5.jpg");
 
     // Save SIFT features
-    //saveSiftFeatures(image);
+    saveSiftFeatures(image);
 
     // Save active set
-    //saveActiveSet(image);
+    saveActiveSet(image);
 
     // Save active set XYZ
-    //saveActiveSetXYZ(image);
+    saveActiveSetXYZ(image);
 
     // Compute pose estimation
     findPoseEstimation(image);
